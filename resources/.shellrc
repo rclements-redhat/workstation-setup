@@ -2,15 +2,15 @@
 
 # Start ssh-agent
 
-if [ -z "$SSH_AUTH_SOCK" ]; then
-   # Check for a currently running instance of the agent
-   RUNNING_AGENT="`ps -ax | grep 'ssh-agent -s' | grep -v grep | wc -l | tr -d '[:space:]'`"
-   if [ "$RUNNING_AGENT" = "0" ]; then
-        # Launch a new instance of the agent
-        ssh-agent -s &> $HOME/.ssh/ssh-agent
-   fi
-   eval `cat $HOME/.ssh/ssh-agent`
-fi
+#if [ -z "$SSH_AUTH_SOCK" ]; then
+#   # Check for a currently running instance of the agent
+#   RUNNING_AGENT="`ps -ax | grep 'ssh-agent -s' | grep -v grep | wc -l | tr -d '[:space:]'`"
+#   if [ "$RUNNING_AGENT" = "0" ]; then
+#        # Launch a new instance of the agent
+#        ssh-agent -s &> $HOME/.ssh/ssh-agent
+#   fi
+#   eval `cat $HOME/.ssh/ssh-agent`
+#fi
 
 ### GPG #######################################################################
 
@@ -28,6 +28,41 @@ git config --global commit.gpgsign true
 # GPG signing for WSL2 shell
 # https://github.com/keybase/keybase-issues/issues/2798
 export GPG_TTY=$(tty)
+
+# Using gpg in WSL2
+# https://github.com/BlackReloaded/wsl2-ssh-pageant
+# https://levelup.gitconnected.com/how-to-use-a-yubikey-in-wsl2-linux-on-windows-96f176518583
+
+# SSH Socket
+# Removing Linux SSH socket and replacing it by link to wsl2-ssh pageant
+
+export SSH_AUTH_SOCK="$HOME/.ssh/agent.sock"
+if ! ss -a | grep -q "$SSH_AUTH_SOCK"; then
+  rm -f "$SSH_AUTH_SOCK"
+  wsl2_ssh_pageant_bin="$HOME/.ssh/wsl2-ssh-pageant.exe"
+  if test -x "$wsl2_ssh_pageant_bin"; then
+    (setsid nohup socat UNIX-LISTEN:"$SSH_AUTH_SOCK,fork" EXEC:"$wsl2_ssh_pageant_bin" >/dev/null 2>&1 &)
+  else
+    echo >&2 "WARNING: $wsl2_ssh_pageant_bin is not executable."
+  fi
+  unset wsl2_ssh_pageant_bin
+fi
+
+# GPG Socket
+# Removing Linux GPG Agent socket and replacing it by link to wsl2-ssh-pageant GPG socket
+export GPG_AGENT_SOCK="$HOME/.gnupg/S.gpg-agent"
+if ! ss -a | grep -q "$GPG_AGENT_SOCK"; then
+  rm -rf "$GPG_AGENT_SOCK"
+  wsl2_ssh_pageant_bin="$HOME/.ssh/wsl2-ssh-pageant.exe"
+  config_path="C\:/Users/Ryan/AppData/Local/gnupg"
+#  config_path="/mnt/c/Users/Ryan/AppData/Local/gnupg"
+  if test -x "$wsl2_ssh_pageant_bin"; then
+    (setsid nohup socat UNIX-LISTEN:"$GPG_AGENT_SOCK,fork" EXEC:"$wsl2_ssh_pageant_bin -gpgConfigBasepath ${config_path} -gpg S.gpg-agent" >/dev/null 2>&1 &)
+  else
+    echo >&2 "WARNING: $wsl2_ssh_pageant_bin is not executable."
+  fi
+  unset wsl2_ssh_pageant_bin
+fi
 
 # function to encrypt
 secret()
