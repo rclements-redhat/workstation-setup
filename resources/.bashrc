@@ -2,7 +2,7 @@
 
 # Source global definitions
 if [ -f /etc/bashrc ]; then
-	. /etc/bashrc
+  . /etc/bashrc
 fi
 
 # User specific environment
@@ -17,11 +17,11 @@ export PATH
 
 # User specific aliases and functions
 if [ -d ~/.bashrc.d ]; then
-	for rc in ~/.bashrc.d/*; do
-		if [ -f "$rc" ]; then
-			. "$rc"
-		fi
-	done
+  for rc in ~/.bashrc.d/*; do
+    if [ -f "$rc" ]; then
+      . "$rc"
+    fi
+  done
 fi
 
 unset rc
@@ -38,8 +38,41 @@ if [ -z "$SSH_AUTH_SOCK" ]; then
    eval `cat $HOME/.ssh/ssh-agent`
 fi
 
+### GPG #######################################################################
+
+GPG_MY_PUBLIC_KEY_ID=58646927A6BC2736
+
+# GPG signing for WSL2 shell
+# https://github.com/keybase/keybase-issues/issues/2798
+export GPG_TTY=$(tty)
+
+# function to encrypt
+secret()
+{
+  output=~/"${1}".enc
+  gpg --encrypt --armor --output "${output}" -r "${GPG_MY_PUBLIC_KEY_ID}" "${1}" \
+  && echo "${1} -> ${output}"
+}
+
+encrypt()
+{
+  secret "${1}"
+}
+
+# function to decrypt
+reveal()
+{
+  output=$(echo "${1}" | rev | cut -c5- | rev)
+  gpg --decrypt --output ${output} "${1}" && echo "${1} -> ${output}"
+}
+
+decrypt()
+{
+  reveal "${1}"
+}
+
 # prompt
-export PS1="cows\[\e[90m[\e[94m\]\u\[\e[92m\] \W \[\e[36m\]$(git branch 2> /dev/null | sed -e '/^[^*]/d' -e 's/* \(.*\)/(\1)/')\[\e[90m]\e[37m\]$ \[$(tput sgr0)\]"
+export PS1="\[\e[90m[\e[94m\]\u\[\e[92m\] \W \[\e[36m\]$(git branch 2> /dev/null | sed -e '/^[^*]/d' -e 's/* \(.*\)/(\1)/')\[\e[90m]\e[37m\]$ \[$(tput sgr0)\]"
 
 # use base python environment
 source ~/.venvs/base/bin/activate
