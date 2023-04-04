@@ -55,7 +55,6 @@ if ! ss -a | grep -q "$GPG_AGENT_SOCK"; then
   rm -rf "$GPG_AGENT_SOCK"
   wsl2_ssh_pageant_bin="$HOME/.ssh/wsl2-ssh-pageant.exe"
   config_path="C\:/Users/Ryan/AppData/Local/gnupg"
-#  config_path="/mnt/c/Users/Ryan/AppData/Local/gnupg"
   if test -x "$wsl2_ssh_pageant_bin"; then
     (setsid nohup socat UNIX-LISTEN:"$GPG_AGENT_SOCK,fork" EXEC:"$wsl2_ssh_pageant_bin -gpgConfigBasepath ${config_path} -gpg S.gpg-agent" >/dev/null 2>&1 &)
   else
