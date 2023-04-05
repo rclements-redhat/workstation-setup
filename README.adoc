@@ -33,3 +33,16 @@ the MesloLGS NF patched fonts below.
 * link:++resources/fonts/MesloLGS NF Bold Bold.ttf++[MesloLGS NF Bold]
 +
 . Click on each font in your downloads folder to install.
+
+. Open Windows Terminal and configure the appropriate WSL2 session, such as 
+Fedora, to use the `MesloLGS NF` font
++
+image:images/01-fonts.png[]
++
+. Configure `vscode` to use the `MesloLGS NF` font
++
+image:images/02-fonts.png[]
++
+With that step complete, you will now have the proper fonts setup for `vscode` 
+terminal shell and zsh's https://github.com/romkatv/powerlevel10k/blob/master/README.md[powerlevel10k]
+
