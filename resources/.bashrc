@@ -35,3 +35,14 @@ export PS1="\[\e[90m[\e[94m\]\u\[\e[92m\] \W \[\e[36m\]$(git branch 2> /dev/null
 # load rc file that used by .bashrc and .zshrc
 source ${HOME}/.shellrc
 
+if [ -z "$SSH_AUTH_SOCK" ]; then
+   # Check for a currently running instance of the agent
+   RUNNING_AGENT="`ps -ax | grep 'ssh-agent -s' | grep -v grep | wc -l | tr -d '[:space:]'`"
+   if [ "$RUNNING_AGENT" = "0" ]; then
+        # Launch a new instance of the agent
+        ssh-agent -s &> $HOME/.ssh/ssh-agent
+   fi
+   export $(eval $(ssh-agent))
+   
+fi
+

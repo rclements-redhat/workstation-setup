@@ -1,0 +1,15 @@
+= Guidance on these fonts
+Author Name <ryan@clements.me>
+v1.0
+
+This document stores the current font setups I use for my workstation an vscode 
+setups.
+
+== General Linux workstation:
+
+(link:MesloLGS NF Bold Italic.ttf)[MesloLGS NF Bold Italic]
+
+
+
+
+
