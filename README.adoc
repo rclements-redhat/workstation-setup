@@ -1,6 +1,13 @@
 = Guidance on these fonts
 Author Name <ryan@clements.me> v1.0
 :icons: font
+ifdef::env-github[]
+:tip-caption: :bulb:
+:note-caption: :information_source:
+:important-caption: :heavy_exclamation_mark:
+:caution-caption: :fire:
+:warning-caption: :warning:
+endif::[]
 
 This document stores the current font setups I use for my workstation an vscode 
 setups.
