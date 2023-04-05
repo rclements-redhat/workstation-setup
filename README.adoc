@@ -12,7 +12,7 @@ setups.
 I've been using https://github.com/romkatv/powerlevel10k/blob/master/README.md[powerlevel10k] as my primary `zsh` theme. I use https://ohmyz.sh/[oh my zsh] on
 top of zsh to control themes and plugins.
 
-icon:download[link=https://rubygems.org/downloads/whizbang-1.0.0.gem, window=_blank]
+icon:comment[] Comment
 
 
 For https://github.com/romkatv/powerlevel10k/blob/master/README.md[powerlevel10k]
