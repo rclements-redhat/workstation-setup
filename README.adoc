@@ -16,11 +16,11 @@ the MesloLGS NF patched fonts below.
 
 Instructions for Windows:
 
-1) Click on each font to download:
-
+. Click on each font to download:
++
 * link:++resources/fonts/MesloLGS NF Bold Regular.ttf++[MesloLGS NF Regular]
 * link:++resources/fonts/MesloLGS NF Bold Bold Italic.ttf++[MesloLGS NF Bold Italic]
 * link:++resources/fonts/MesloLGS NF Bold Italic.ttf++[MesloLGS NF Italic]
 * link:++resources/fonts/MesloLGS NF Bold Bold.ttf++[MesloLGS NF Bold]
-
-2) Click on each font in your downloads folder to install.
++
+. Click on each font in your downloads folder to install.
