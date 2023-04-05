@@ -1,8 +1,6 @@
 = Guidance on these fonts
 Author Name <ryan@clements.me> v1.0
 :icons: font
-// Set new URI for reference to FontAwesome CSS
-:iconfont-cdn: //maxcdn.bootstrapcdn.com/font-awesome/4.1.0/css/font-awesome.min.css
 
 This document stores the current font setups I use for my workstation an vscode 
 setups.
