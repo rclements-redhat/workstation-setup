@@ -10,7 +10,19 @@ setups.
 I've been using https://github.com/romkatv/powerlevel10k/blob/master/README.md[powerlevel10k] as my primary `zsh` theme. I use https://ohmyz.sh/[oh my zsh] on
 top of zsh to control themes and plugins.
 
-icon:comment[] Comment
+[Note]
+====
+This is a test of the emergency broadcast system
+This is only a test
+====
+
+TIP: this is only the tip.
+
+IMPORTANT: This is a test
+
+CAUTION: More testing
+
+WARNING: test tes ttest
 
 
 For https://github.com/romkatv/powerlevel10k/blob/master/README.md[powerlevel10k]
