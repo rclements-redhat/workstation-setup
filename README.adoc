@@ -12,22 +12,9 @@ endif::[]
 This document stores the current font setups I use for my workstation an vscode 
 setups.
 
-[source, bash]
-----
-SOMEVAR="var"
-if [[ -z "${SOMEVAR}" ]]; then <1>
-  echo cool <2>
-fi
-
-----
-<1> Use the `ifdef` to customize for online rendering
-<2> Use the `ifndef` to customize for offline
-
-
 == General Linux workstation:
 
-I've been using https://github.com/romkatv/powerlevel10k/blob/master/README.md[powerlevel10k] as my primary `zsh` theme. I use https://ohmyz.sh/[oh my zsh] on
-top of zsh to control themes and plugins.
+I've been using https://github.com/romkatv/powerlevel10k/blob/master/README.md[powerlevel10k] as my primary `zsh` theme. I use https://ohmyz.sh/[oh my zsh] on top of zsh to control themes and plugins.
 
 [Note]
 ====
