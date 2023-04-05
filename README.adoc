@@ -12,6 +12,19 @@ endif::[]
 This document stores the current font setups I use for my workstation an vscode 
 setups.
 
+[source]
+----
+ifdef::env-github[] <1> (1)
+:imagesdir: https://gist.githubusercontent.com/path/to/gist/revision/dir/with/all/images
+endif::[]
+ifndef::env-github[] <2>
+:imagesdir: ./
+endif::[]
+----
+<1> Use the `ifdef` to customize for online rendering (2)
+<2> Use the `ifndef` to customize for offline
+
+
 == General Linux workstation:
 
 I've been using https://github.com/romkatv/powerlevel10k/blob/master/README.md[powerlevel10k] as my primary `zsh` theme. I use https://ohmyz.sh/[oh my zsh] on
