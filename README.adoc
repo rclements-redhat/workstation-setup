@@ -14,14 +14,10 @@ setups.
 
 [source]
 ----
-ifdef::env-github[] <1> (1)
-:imagesdir: https://gist.githubusercontent.com/path/to/gist/revision/dir/with/all/images
-endif::[]
-ifndef::env-github[] <2>
-:imagesdir: ./
-endif::[]
+This is a test <1>
+Make sure you check this out <2>
 ----
-<1> Use the `ifdef` to customize for online rendering (2)
+<1> Use the `ifdef` to customize for online rendering
 <2> Use the `ifndef` to customize for offline
 
 
