@@ -1,6 +1,6 @@
 = Guidance on these fonts
-Author Name <ryan@clements.me>
-v1.0
+Author Name <ryan@clements.me> v1.0
+:icons: font
 
 This document stores the current font setups I use for my workstation an vscode 
 setups.
@@ -10,11 +10,13 @@ setups.
 I've been using https://github.com/romkatv/powerlevel10k/blob/master/README.md[powerlevel10k] as my primary `zsh` theme. I use https://ohmyz.sh/[oh my zsh] on
 top of zsh to control themes and plugins.
 
+icon:download[https://github.com/romkatv/powerlevel10k/blob/master/README.md]
+
 For https://github.com/romkatv/powerlevel10k/blob/master/README.md[powerlevel10k]
 to operate correctly with all the best icons and a good looking font, I use
 the MesloLGS NF patched fonts below.
 
-Instructions for Windows:
+=== Instructions for Windows:
 
 . Click on each font to download:
 +
