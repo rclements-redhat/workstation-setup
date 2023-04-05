@@ -7,7 +7,7 @@ setups.
 
 == General Linux workstation:
 
-(link:MesloLGS NF Bold Italic.ttf)[MesloLGS NF Bold Italic]
+link:++MesloLGS NF Bold Italic.ttf++[MesloLGS NF Bold Italic]
 
 
 
