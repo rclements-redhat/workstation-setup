@@ -29,3 +29,15 @@ colorscheme codedark
 
 " set 80 character column line ruler
 set colorcolumn=80
+
+" Set line numbers on left side
+set number
+
+" Ensure Containerfile uses the Dockerfile syntax
+autocmd BufNewFile,BufRead Containerfile set filetype=dockerfile
+
+" disable errorbells and visualbells
+set noerrorbells visualbell t_vb=
+
+" Ensure once gui loads, visualbell is cleared again
+autocmd GUIEnter * set visualbell t_vb=

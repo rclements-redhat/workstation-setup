@@ -81,10 +81,17 @@ decrypt()
   reveal "${1}"
 }
 
+export PATH=${PATH}:${HOME}/bin
+
 # use base python environment
 source ~/.venvs/base/bin/activate
+
+export KUBE_CONFIG_DIR="${HOME}/.kube"
+export KUBE_CONFIG_COMPUTACENTER="${KUBE_CONFIG_DIR}/computacenter-config"
 
 alias ap=ansible-playbook
 alias ar=ansible-rulebook
 alias av=ansible-vault
+alias cc1="oc config --kubeconfig=${KUBE_CONFIG_COMPUTACENTER} use-context computacenter1"
+alias cc2="oc config --kubeconfig=${KUBE_CONFIG_COMPUTACENTER} use-context computacenter2"
 

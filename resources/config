@@ -9,11 +9,13 @@ Host github.com
 # https://goteleport.com/blog/ssh-proxyjump-ssh-proxycommand/
 #
 Host jump
+  StrictHostKeyChecking no
   HostName 148.62.95.167
   Port 22022
   User cloud-user
 
 Host labs
+  StrictHostKeyChecking no
   HostName 172.25.252.1
   Port 53009
   IdentityFile ~/.ssh/rht_classroom.rsa
