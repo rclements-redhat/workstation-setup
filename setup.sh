@@ -14,8 +14,10 @@
 #
 ###############################################################################
 
-# Make zsh regex match behave like bash rematch
-#setopt bash_rematch
+# Make zsh regex match behave like bash rematch. Only uncomment this if you
+# change the shebang to zsh because bash isn't available. regex matches on zsh
+# behave a bit... differently
+# setopt bash_rematch
 
 SCRIPT_NAME=$(basename "${0}")
 
