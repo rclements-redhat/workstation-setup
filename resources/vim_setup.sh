@@ -38,11 +38,15 @@ declare -a PLUGIN_NAMES=("indentLine"
                          "vim-terraform"
                          "vim-shellcheck"
                          "vim-windowswap"
+                         "vim-fugitive"
+                         "vim-merginal"
                          )              
 declare -a PLUGIN_URLS=("https://github.com/Yggdroot/indentLine.git"
                         "https://github.com/hashivim/vim-terraform.git"
                         "https://github.com/itspriddle/vim-shellcheck.git"
                         "https://github.com/wesQ3/vim-windowswap"
+                        "https://github.com/tpope/vim-fugitive"
+                        "https://github.com/idanarye/vim-merginal"
                         )
 
 ## THEMES
@@ -142,9 +146,9 @@ do
       log ERROR "git" "  - ${git_msg}"
     } &&
     {
-      log INFO "vim plugins" "$(join "  Installed ${C[cyan]} "\
+      log INFO "vim plugins" "$(join "  Installed ${C[cyan]}"\
                              "${PLUGIN_NAMES[${num}]}${C[reset]}"\
-                             "from  ${C[cyan]}${PLUGIN_URLS[${num}]}")"
+                             "from ${C[cyan]}${PLUGIN_URLS[${num}]}")"
     }
    
   fi                                                                                                                                                   
