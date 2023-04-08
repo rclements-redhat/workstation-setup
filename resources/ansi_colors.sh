@@ -85,7 +85,8 @@ bold=$(tput bold)
 blink=$(tput blink) # Blinking test
 reverse=$(tput rev) # reverse video mode
 normal=$(tput sgr0)
-
+s_u=$(tput smul)
+e_u=$(tput rmul)
 sol=$(tput ll)
 save_cursor_pos=$(tput sc)
 restore_cursor_pos=$(tput rc)

@@ -44,27 +44,34 @@ TRUE=1
 ### ARRAY DECLARATIONS #########################################################
 
 declare -A ssh_options
-declare -A RUNNING_PIDS
 
 ### FILES ######################################################################
+
+# Get the REAL name of the user executing this script, even if they use sudo
+REAL_USER="${SUDO_USER:-${USER}}"
+# Based on the real user, get their home directory
+USER_HOME_DIR=$(getent passwd "${REAL_USER}" | cut -d: -f6 )
 
 # if REMOTE_SERVER is defined, then the script will send the setup commands to
 # the remote server name
 REMOTE_SERVER=labs
 
-FILE_KNOWN_HOSTS="${HOME}/.ssh/known_hosts"
-FILE_SSH_CONFIG="${HOME}/.ssh/config"
-FILE_SSH_PRIVATE_KEY="${HOME}/.ssh/rht_classroom.rsa"
+FILE_KNOWN_HOSTS="${USER_HOME_DIR}/.ssh/known_hosts"
+FILE_SSH_CONFIG="${USER_HOME_DIR}/.ssh/config"
+FILE_SSH_PRIVATE_KEY="${USER_HOME_DIR}/.ssh/rht_classroom.rsa"
 FILE_LOCS_ANSI_COLOR=("./resources/" \
-                      "${HOME}/.helper_scripts/"
+                      "${USER_HOME_DIR}/.helper_scripts/"
                       "/opt/helper_scripts/" \
                      )
+
 FILE_ANSI_COLOR="ansi_colors.sh"
 
 ### STRINGS ####################################################################
 
 SSHCONFIG_EXAMPLE="\"ssh -i ~/.ssh/rht_classroom.rsa -J cloud-user@55.60.13.103:22022 student@172.25.252.1 -p 53009\""
 SPINNER="/-\|"
+
+OH_MY_ZSH_NAME="${lred}Oh My ZSH!${normal}"
 
 ### UNICODE CHARS ##############################################################
 
@@ -78,16 +85,11 @@ load_ansi_colors()
   # shellcheck disable=SC2068
   for dir in "${FILE_LOCS_ANSI_COLOR[@]}"
   do
-    echo "DIR = ${dir}"
     # Does the directory exist?
     if [[ -d "${dir}" ]]; then 
-      echo "exists"
       # Does the file exist in the directory?
       if [[ -f "${dir}${FILE_ANSI_COLOR}" ]]; then
         # Then load the ansi color definition file
-        # shellcheck disable=SC1090
-        echo "file exists = ${dir}/${FILE_ANSI_COLOR}"
-        # Load the file
         # shellcheck source=./resources/ansi_colors.sh
         source "${dir}${FILE_ANSI_COLOR}" > /dev/null 2>&1
         # Return from function
@@ -164,7 +166,7 @@ log()
 
   echo -ne "${grey}[${lc}*"
   tput sc
-  printf "%s]%s %s" "${gray}" "${normal}" "${msg}"
+  printf "%s]%s %b" "${gray}" "${normal}" "${msg}"
 }
 
 # This function is a trap function called by the "trap" directive. Shellcheck
@@ -188,6 +190,31 @@ _sigint_trap()
 assign_traps()
 {
   trap _sigint_trap SIGINT
+}
+
+run_local()
+{
+  eval "${1}" &
+  PID=$!
+  
+  # Add the PID to the running PIDS array
+  RUNNING_PID="${PID}"
+
+  i=1
+  echo -n ' '
+  tput rc
+  #echo -en "${restore_cursor_pos}"
+  while [[ -d "/proc/${PID}" ]]
+  do
+    printf "\b${SPINNER:i++%${#SPINNER}:1}"
+    sleep 0.1
+  done
+  # Delete the PID from the runing PIDS array
+  RUNNING_PID=""
+#  tput rc
+  tput cub1
+  echo -e "${unicode_check_mark}"
+
 }
 
 # Function to run commands
@@ -220,7 +247,6 @@ EOD
   # do
   #   echo "RUNNING_PIDS = $pid"
   # done
-  
   i=1
   echo -n ' '
   tput rc
@@ -253,7 +279,21 @@ copy()
   fi
 }
 
+keyscan_host()
+{
+  local address
+  local port
+
+  address="${1}"
+  port="${2}"
+
+  log "${INFO}" "Scanning keys from host ${lcyan}${address}${normal}:${lcyan}${port}${normal}\n"
+  run_local "ssh-keyscan -p ${port} ${address} >> ${FILE_KNOWN_HOSTS} 2>&1"
+}
+
 ## Install ZSH
+
+# TODO: I really don't like this. Must rework at some point.
 
 install_zsh()
 {
@@ -263,29 +303,31 @@ install_zsh()
   log "${INFO}" "Installing zsh using dnf"
   run "sudo dnf -y install zsh > /dev/null"
 
-  log "${INFO}" "Downloading ohmyzsh!"
+  log "${INFO}" "Downloading ${OH_MY_ZSH_NAME}"
   run "curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh -o ./install.sh"
-  log "${INFO}" "Running the ohmyzsh install script"
+  log "${INFO}" "Running the ${OH_MY_ZSH_NAME} install script"
   run "sh install.sh > /dev/null"
   log "${INFO}" "Cloning powerlevel10k"
-  run "git clone -q \-\-depth=1 https://github.com/romkatv/powerlevel10k.git \${ZSH_CUSTOM:-\$HOME}/.oh-my-zsh/custom/themes/powerlevel10k > /dev/null 2>&1"
+  run "git clone -q \-\-depth=1 https://github.com/romkatv/powerlevel10k.git \${ZSH_CUSTOM:-\${HOME}}/.oh-my-zsh/custom/themes/powerlevel10k > /dev/null 2>&1"
   log "${INFO}" "Cloning vim theme code-dark"
   run "git clone \-\-depth=1 https://github.com/tomasiser/vim-code-dark \${HOME}/.vim/pack/themes/start/vim-code-dark > /dev/null 2>&1"
   
   if [[ -n "${REMOTE_SERVER}" ]]; then
-    log "${INFO}" "Copying sed script (sed.sh)"
+    log "${INFO}" "Copying sed script (sed.sh)\n"
     copy_if_remote resources/sed.sh sed.sh
-    log "${INFO}" "Copying Powerlevel10k prompt script for ohmyzsh (.p10k.zsh)"
+    log "${INFO}" "Copying Powerlevel10k prompt script for ohmyzsh (.p10k.zsh)\n"
     copy_if_remote resources/.p10k.zsh .p10k.zsh
-    log "${INFO}" "Copying vim configuration file (.vimrc)"
+    log "${INFO}" "Copying vim configuration file (.vimrc)\n"
     copy_if_remote resources/.vimrc .vimrc
-    log "${INFO}" "Copying zsh configuration file (.zshrc)"
+    log "${INFO}" "Copying zsh configuration file (.zshrc)\n"
     copy_if_remote resources/.zshrc .zshrc
   fi
-  log "${INFO}" "Runing sed script (sed.sh)"
+  log "${INFO}" "Runing sed script (sed.sh)\n"
   run "sh sed.sh > /dev/null 2>&1"
-  log "${INFO}" "Changing the user's shell to /usr/bin/zsh"
+  log "${INFO}" "Changing the user's shell to /usr/bin/zsh\n"
   run "sudo chsh \${USER} -s /usr/bin/zsh > /dev/null 2>&1"
+  print_horizontal_line
+  log "${INFO}" "Type: '${lcyan}ssh labs${normal}' to connect\n"
   print_horizontal_line
 }
 
@@ -322,7 +364,7 @@ _final_check_for_host_and_port_in_ssh_config()
 
   host_count=$(sed -ne "/^\[${server_hostname}\]\:${server_port}/p" "${FILE_KNOWN_HOSTS}" | wc -l)
   if [[ "${host_count}" -eq 0 ]]; then
-    log "${INFO}" "Removed all references of ${server_hostname}:${server_port} in ${FILE_KNOWN_HOSTS}"
+    log "${INFO}" "Removed all references of ${lcyan}${server_hostname}${normal}:${lcyan}${server_port} in ${lcyan}${FILE_KNOWN_HOSTS}${normal}\n"
   else
     log "${WARN}" "WARNING: Could not remove all references to ${server_hostname}:${server_port}"
     log "${WARN}" "         Post-check still reports ${host_count} references left in ${FILE_KNOWN_HOSTS}"
@@ -367,21 +409,38 @@ check_for_host_and_port_in_ssh_config()
 
   # Did we find any entries of dest or jump server in the known_hosts file?
   if [[ "${jump_host_count}" -gt 0 || "${dest_host_count}" -gt 0 ]]; then
-    log "Checking for old references in ${FILE_KNOWN_HOSTS}"
-    print_horizontal_line
-    echo "There are $jump_host_count references of ${jump_server_hostname}:${jump_server_port} in ${FILE_KNOWN_HOSTS}"
-    echo "There are $dest_host_count references of ${dest_server_hostname}:${dest_server_port} in ${FILE_KNOWN_HOSTS}"
-    print_horizontal_line
+    log "${INFO}" "Checking for old references in ${FILE_KNOWN_HOSTS}\n"
+
+    if [[ "${jump_host_count}" -gt 0 ]]; then
+      jump_count_color="${lred}${blink}"
+    else
+      jump_count_color="${lgreen}"
+    fi
+
+    if [[ "${dest_host_count}" -gt 0 ]]; then
+      dest_count_color="${lred}${blink}"
+    else
+      dest_count_color="${lgreen}"
+    fi
+    
+    echo -n "    "
+    echo -ne "${grey}-> ${normal}There are ${jump_count_color}$jump_host_count ${normal}references of ${lcyan}${jump_server_hostname}${normal}:${lcyan}${jump_server_port} in ${FILE_KNOWN_HOSTS}\n"
+    echo -n "    "
+    echo -ne "${grey}-> ${normal}There are ${dest_count_color}$dest_host_count ${normal}references of ${lcyan}${dest_server_hostname}${normal}:${lcyan}${dest_server_port} in ${FILE_KNOWN_HOSTS}\n"
     echo ""
-    echo "--> Remove ALL references to the jump and dest hosts in ${FILE_KNOWN_HOSTS}?"
-    echo "--> This is recommended so you don't get host key warnings."
-    echo -n "--> [Y/n]: "
+    question=(\
+      "Remove ALL references to the jump and dest hosts in ${lcyan}${FILE_KNOWN_HOSTS}${normal}?\n" \
+      "This is ${s_u}recommended${e_u} so you don't get host key warnings.\n" \
+      "[Y/n]: "
+    )
+    print_question "${question[@]}"
     # Wait for user's single character input. Default is 'Y'
     read -r -n1 ans
     echo ""
+    echo ""
     # If user typed anything besides 'n', then remove the entries
     if [[ "${ans}" != "n" ]]; then
-      log "Creating backup ${FILE_KNOWN_HOSTS}.bak"
+      log "${INFO}" "Creating backup ${lcyan}${FILE_KNOWN_HOSTS}.bak${normal}\n"
       sed -i.bak -e "/^\[${dest_server_hostname}\]\:${dest_server_port}/d " \
                   -e "/^\[${jump_server_hostname}\]\:${jump_server_port}/d " \
                   "${FILE_KNOWN_HOSTS}"
@@ -394,6 +453,22 @@ check_for_host_and_port_in_ssh_config()
     _final_check_for_host_and_port_in_ssh_config \
       "${jump_server_hostname}" "${jump_server_port}"
   fi
+  echo ""
+}
+
+print_question()
+{
+  local question_array
+  local input_char
+  local question_pre
+
+  question_array=("$@")
+
+  question_pre="${grey}[${purple}-->${grey}]${normal}"
+  for line in "${question_array[@]}"
+  do
+    echo -ne "${question_pre} ${line}"
+  done
 }
 
 parse_ssh_options()
@@ -521,26 +596,38 @@ EOF
   ssh_t="${ssh_t//_DEST_SERVER_USERNAME_/${dest_server_username}}"
 
   # Use sed to delete any previous entries
-  sed -i -e '/### _GENERATED_BY_SSH_SETUP_SCRIPT_START_ ###/,/### _GENERATED_BY_SSH_SETUP_SCRIPT_END_ ###/d' ~/.ssh/config
+  sed -i -e '/### _GENERATED_BY_SSH_SETUP_SCRIPT_START_ ###/,/### _GENERATED_BY_SSH_SETUP_SCRIPT_END_ ###/d' "${FILE_SSH_CONFIG}"
 
   # use echo to concat the new entry into the ssh config
   echo "${ssh_t}" >> "${FILE_SSH_CONFIG}"
 
-  log "${INFO}" "Successfully added the jump server configuration in your ${FILE_SSH_CONFIG} file"
-  log "${INFO}" "Type: 'ssh labs' to connect"
+  print_horizontal_line
+  log "${INFO}" "Successfully added the jump server configuration in your ${lcyan}${FILE_SSH_CONFIG} ${normal}file\n"
+  log "${INFO}" "Type: '${lcyan}ssh labs${normal}' to connect\n"
+  print_horizontal_line
 
   # Perform some final checks
   check_for_host_and_port_in_ssh_config \
     "${dest_server_hostname}" "${dest_server_port}" \
     "${jump_server_hostname}" "${jump_server_port}"
 
+  keyscan_host "${jump_server_hostname}" "${jump_server_port}"
+  keyscan_host "${dest_server_hostname}" "${dest_server_port}"
+
+  echo ""
+  question=(\
+    "Would you like to run the \"${OH_MY_ZSH_NAME}\" setup on the remote labs host?\n"
+    "${normal}[Y/n]${grey}: ")
+
   # Ask user if they would now like to run the zsh setup
-  echo "Would you like to run the oh my zsh setup on the remote labs host?"
-  echo -n "[Y/n]: "
-  read -r -n1 ans
+  print_question "${question[@]}"
+
+  local input_char
+
+  read -r -n1 input_char
   echo ""
   # anything besides 'n' means 'y'
-  if [[ "${ans}" != "n" ]]; then
+  if [[ "${input_char}" != "n" ]]; then
     install_zsh
   fi
 }
@@ -577,7 +664,7 @@ Usage:
        Ensure to surround your connection string in quotes!
        The prompts will step you through the setup process.
 
-    ** NOTE: If you install "oh my zsh!" and the "powerlevel10k" prompt, then
+    ** NOTE: If you install "_OH_MY_ZSH_NAME_" and the "powerlevel10k" prompt, then
              you will need to install the custom fonts on your machine.
              See the fonts/ subdirectory for more information.
 EOF
@@ -586,6 +673,8 @@ EOF
   help_msg="${help_msg//_SSH_CONFIG_EXAMPLE_/${SSHCONFIG_EXAMPLE}}"
   help_msg="${help_msg//_FILE_SSH_PRIVATE_KEY_/${FILE_SSH_PRIVATE_KEY}}"
   help_msg="${help_msg//_SCRIPT_NAME_/${SCRIPT_NAME}}"
+  help_msg="${help_msg//_OH_MY_ZSH_NAME_/${OH_MY_ZSH_NAME}}"
+
 
   print_horizontal_line
   echo "${help_msg}"
@@ -624,6 +713,7 @@ options()
     ;;
     "--sshconfig")
       print_header
+      test_sudo
       configure_ssh_config "${arg2}"
     ;;
     "--remote")
@@ -640,6 +730,7 @@ options()
     # if anything else, then just install zsh as normal
     *)
       print_header
+      test_sudo
       install_zsh "${arg1}"
       success_msg
     ;;
@@ -648,12 +739,28 @@ options()
 
 prompt_for_sudo_password()
 {
-  log "${WARN}" "sudo command requires a password to function on your account"
-  echo  -e "--> Please enter your sudo password so this script can function."
-  echo -ne "--> "
-  read -s SUDO_PASSWORD
-}
+  question=(\
+"The ${lcyan}sudo ${normal}command requires a password when run as the ${lcyan}${REAL_USER} ${normal}user.\n" \
+"\n"
+"${pink}${s_u}You have two choices:${e_u}\n"
+"\n"
+"  ${yellow}1${orange}. ${normal}Enter the ${lcyan}sudo ${normal}password below\n" \
+"  ${yellow}2${orange}. ${normal}Or rerun this script with sudo privileges (${lcyan}CTRL-C ${normal}to exit)\n" \
+"\n"
+"It needs sudo because the script installs a few packages such as zsh if \n" \
+"${OH_MY_ZSH_NAME} is selected to be installed.\n" \
+"\n"
+"Please enter the ${lcyan}sudo${normal} password below (echo is turned off):\n" \
+""
+  )
+  print_question "${question[@]}"
+  
+  read -r -s SUDO_PASSWORD
+  echo ""
+  echo ""
+  log "${INFO}" "Thank you for entering the sudo password. Continuing...\n"
 
+}
 
 test_sudo()
 {
@@ -670,7 +777,6 @@ test_sudo()
 
 #set -x
 assign_traps
-test_sudo
 load_ansi_colors
 options "${@}"
 exit "${SUCCESS}"
