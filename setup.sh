@@ -88,6 +88,7 @@ load_ansi_colors()
         # shellcheck disable=SC1090
         echo "file exists = ${dir}/${FILE_ANSI_COLOR}"
         # Load the file
+        # shellcheck source=./resources/ansi_colors.sh
         source "${dir}${FILE_ANSI_COLOR}" > /dev/null 2>&1
         # Return from function
         return
@@ -102,11 +103,7 @@ load_ansi_colors
 
 ### FUNCTIONS ##################################################################
 
-e()
-{
-  echo -e "${1}"
-}
-
+# Print a horizontal black line
 print_horizontal_line()
 {
   black_bold
@@ -140,6 +137,7 @@ EOF
   echo "${PROGRAM_HEADER}"
   echo -e "$cyan"
   echo "Copyright (c) 2023 ${AUTHOR} (${AUTHOR_EMAIL})"
+  echo "License: GPLv3 (${LICENSE})"
   reset_color
   print_horizontal_line
   echo ""
@@ -154,6 +152,8 @@ log()
   level="${1}"
   msg="${2}"
 
+  # ? Should this be case instead?
+
   if [[ "${level}" -eq "${ERROR}" ]]; then
     lc="$red"
   elif [[ "${level}" -eq "${INFO}" ]]; then
@@ -167,6 +167,9 @@ log()
   printf "%s]%s %s" "${gray}" "${normal}" "${msg}"
 }
 
+# This function is a trap function called by the "trap" directive. Shellcheck
+# thinks its not accessable
+# shellcheck disable=SC2317
 _sigint_trap()
 {
   echo ""
@@ -181,11 +184,14 @@ _sigint_trap()
   exit "${ERROR}"
 }
 
+# Assign trap functions to signals
 assign_traps()
 {
   trap _sigint_trap SIGINT
 }
 
+# Function to run commands
+# TODO: Rework this
 run()
 {
   if [[ -n "${REMOTE_SERVER}" ]]; then
@@ -597,6 +603,7 @@ print_compressed_header()
 {
   print_horizontal_line
   echo "${TITLE} ${VERSION} Copyright (c) 2023 ${AUTHOR} (${AUTHOR_EMAIL})"
+  echo "Author GPG key: ${AUTHOR_PGP_PUBLIC_KEY}"
   print_horizontal_line
   echo "This program is free software: you can redistribute it and/or modify"
   echo "it under the terms of the GNU General Public License either v3 or later." 

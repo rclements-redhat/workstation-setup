@@ -61,6 +61,7 @@ declare -rA C=(
 )
 
 
+# shellcheck disable=SC2034
 black=$(tput setaf 16)
 white=$(tput setaf 15)
 gray=$(tput setaf 240)
