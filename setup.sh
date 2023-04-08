@@ -2,7 +2,7 @@
 # -*- encoding: utf-8 -*-
 ###############################################################################
 #
-# Copyright (c) 2023 Ryan Clements
+# Copyright (c) 2023 Ryan M. Clements
 # Author: Ryan M. Clements
 # LinkedIn: https://www.linkedin.com/in/ryan-clements-rhce/
 # License: https://www.gnu.org/licenses/gpl-3.0.html
@@ -19,46 +19,99 @@
 # behave a bit... differently
 # setopt bash_rematch
 
+### META #######################################################################
+
+TITLE="Workstation Setup"
+VERSION="v1.0"
+AUTHOR="Ryan M. Clements"
+AUTHOR_EMAIL="rclement@redhat.com"
+AUTHOR_PGP_PUBLIC_KEY="FD1EB8DBA4278107A7197F9A58646927A6BC2736"
+LICENSE="https://www.gnu.org/licenses/gpl-3.0.html"
 SCRIPT_NAME=$(basename "${0}")
 
+### CONSTANTS ##################################################################
+
+# Assign error codes so we don't have magic numbers in the script
 SUCCESS=0
+INFO=0
 ERROR=1
+WARN=2
+
+# This is it.. the beginning of logic
+FALSE=0
+TRUE=1
+
+### ARRAY DECLARATIONS #########################################################
 
 declare -A ssh_options
+declare -A RUNNING_PIDS
+
+### FILES ######################################################################
 
 # if REMOTE_SERVER is defined, then the script will send the setup commands to
 # the remote server name
 REMOTE_SERVER=labs
 
 FILE_KNOWN_HOSTS="${HOME}/.ssh/known_hosts"
+FILE_SSH_CONFIG="${HOME}/.ssh/config"
+FILE_SSH_PRIVATE_KEY="${HOME}/.ssh/rht_classroom.rsa"
+FILE_LOCS_ANSI_COLOR=("./resources/" \
+                      "${HOME}/.helper_scripts/"
+                      "/opt/helper_scripts/" \
+                     )
+FILE_ANSI_COLOR="ansi_colors.sh"
+
+### STRINGS ####################################################################
+
+SSHCONFIG_EXAMPLE="\"ssh -i ~/.ssh/rht_classroom.rsa -J cloud-user@55.60.13.103:22022 student@172.25.252.1 -p 53009\""
+SPINNER="/-\|"
+
+### UNICODE CHARS ##############################################################
+
+unicode_check_mark="\u2713"
+
+### PRELOAD FUNCTIONS ##########################################################
+
+load_ansi_colors()
+{
+  # Check the dirs where the file may be
+  # shellcheck disable=SC2068
+  for dir in "${FILE_LOCS_ANSI_COLOR[@]}"
+  do
+    echo "DIR = ${dir}"
+    # Does the directory exist?
+    if [[ -d "${dir}" ]]; then 
+      echo "exists"
+      # Does the file exist in the directory?
+      if [[ -f "${dir}${FILE_ANSI_COLOR}" ]]; then
+        # Then load the ansi color definition file
+        # shellcheck disable=SC1090
+        echo "file exists = ${dir}/${FILE_ANSI_COLOR}"
+        # Load the file
+        source "${dir}${FILE_ANSI_COLOR}" > /dev/null 2>&1
+        # Return from function
+        return
+      fi
+    fi
+  done
+}
+
+### PRELOAD COMMANDS ###########################################################
+
+load_ansi_colors
+
+### FUNCTIONS ##################################################################
+
+e()
+{
+  echo -e "${1}"
+}
 
 print_horizontal_line()
 {
+  black_bold
   python -c "print('-' * 80)"
-}
-
-# Log messages to screen
-log()
-{
-  local msg
-  msg="${1}"
-  echo "[*] ${msg}"
-}
-
-run()
-{
-  if [[ -n "${REMOTE_SERVER}" ]]; then
-    ssh -q "${REMOTE_SERVER}" "${1}" > /dev/null
-  else
-    eval "${1}"
-  fi
-}
-
-copy_if_remote()
-{
-  if [[ -n "${REMOTE_SERVER}" ]]; then
-    scp "${1}" "${REMOTE_SERVER}:${2}" > /dev/null
-  fi
+  reset_color
 }
 
 print_header()
@@ -79,18 +132,115 @@ __        __         _        _        _   _
 \___ \ / _ \ __| | | | '_ \  \ \ / / || | | |
  ___) |  __/ |_| |_| | |_) |  \ V /| || |_| |
 |____/ \___|\__|\__,_| .__/    \_/ |_(_)___/
-                     |_|  
+                     |_|
+
 EOF
 )
   print_horizontal_line
   echo "${PROGRAM_HEADER}"
+  echo -e "$cyan"
+  echo "Copyright (c) 2023 ${AUTHOR} (${AUTHOR_EMAIL})"
+  reset_color
   print_horizontal_line
   echo ""
 }
 
+# Log messages to screen
+log()
+{
+  local level
+  local msg
+
+  level="${1}"
+  msg="${2}"
+
+  if [[ "${level}" -eq "${ERROR}" ]]; then
+    lc="$red"
+  elif [[ "${level}" -eq "${INFO}" ]]; then
+    lc="$green"
+  else
+    lc="$yellow"
+  fi
+
+  echo -ne "${grey}[${lc}*"
+  tput sc
+  printf "%s]%s %s" "${gray}" "${normal}" "${msg}"
+}
+
+_sigint_trap()
+{
+  echo ""
+  print_horizontal_line
+  log "${WARN}" "SIGINT captured: Shutting down threaded processes."
+  echo ""
+  print_horizontal_line
+
+  if [[ -n "${RUNNING_PID}" ]]; then
+    kill -9 "${RUNNING_PID}" > /dev/null 2>&1
+  fi
+  exit "${ERROR}"
+}
+
+assign_traps()
+{
+  trap _sigint_trap SIGINT
+}
+
+run()
+{
+  if [[ -n "${REMOTE_SERVER}" ]]; then
+    ssh -q "${REMOTE_SERVER}" "${1}" > /dev/null &
+    PID=$!
+  else
+    if [[ "${SUDO_REQUIRES_PASSWORD}" -eq "${TRUE}" ]]; then
+#    echo "Requires password"
+#    exit
+/usr/bin/expect <<EOD
+spawn ${1}
+expect "[sudo] password"
+send -- "${SUDO_PASSWORD}\r"
+interact
+EOD
+    fi
+    eval "${1}" &
+    PID=$!
+  fi
+  # Add the PID to the running PIDS array
+  RUNNING_PID="${PID}"
+  # echo "PID = ${PID}"
+  # RUNNING_PIDS[${#RUNNING_PIDS[@]}]="${PID}"
+
+  # for pid in ${RUNNING_PIDS[@]}
+  # do
+  #   echo "RUNNING_PIDS = $pid"
+  # done
+  
+  i=1
+  echo -n ' '
+  tput rc
+  #echo -en "${restore_cursor_pos}"
+  while [[ -d "/proc/${PID}" ]]
+  do
+    printf "\b${SPINNER:i++%${#SPINNER}:1}"
+    sleep 0.1
+  done
+  # Delete the PID from the runing PIDS array
+  RUNNING_PID=""
+#  tput rc
+  tput cub1
+  echo -e "${unicode_check_mark}"
+}
+
+copy_if_remote()
+{
+  if [[ -n "${REMOTE_SERVER}" ]]; then
+    scp "${1}" "${REMOTE_SERVER}:${2}" > /dev/null
+  fi
+}
+
 copy()
 {
-  if [[ ! -z "${REMOTE_SERVER}" ]]; then
+  if [[ -n "${REMOTE_SERVER}" ]]; then
     scp "${1}" "${REMOTE_SERVER}:${2}" 
   else
     cp "${1}" "${2}"
@@ -102,27 +252,34 @@ copy()
 install_zsh()
 {
   print_horizontal_line
-  log "Installing zsh using dnf"
+  # log "${INFO}" "Sleeeeeeeeeeping..."
+  # run "sleep 10"
+  log "${INFO}" "Installing zsh using dnf"
   run "sudo dnf -y install zsh > /dev/null"
 
-  log "Downloading oh my zsh!"
+  log "${INFO}" "Downloading ohmyzsh!"
   run "curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh -o ./install.sh"
-  run "sh install.sh"
-  log "Cloning powerlevel10k"
-  run "git clone \-\-depth=1 https://github.com/romkatv/powerlevel10k.git \${ZSH_CUSTOM:-\$HOME}/.oh-my-zsh/custom/themes/powerlevel10k"
-  log "Cloning vim theme code-dark"
-  run "git clone \-\-depth=1 https://github.com/tomasiser/vim-code-dark \${HOME}/.vim/pack/themes/start/vim-code-dark"
-  log "Copying sed.sh"
-  copy_if_remote resources/sed.sh sed.sh
-  log "Runing sed.sh"
-  run "sh sed.sh"
-  log "Copying .10k.zsh"
-  copy_if_remote resources/.p10k.zsh .p10k.zsh
-  log "Copying .vimrc"
-  copy_if_remote resources/.vimrc .vimrc
-  log "Copying .zshrc"
-  copy_if_remote resources/.zshrc .zshrc
-  run "sudo chsh student -s /usr/bin/zsh"
+  log "${INFO}" "Running the ohmyzsh install script"
+  run "sh install.sh > /dev/null"
+  log "${INFO}" "Cloning powerlevel10k"
+  run "git clone -q \-\-depth=1 https://github.com/romkatv/powerlevel10k.git \${ZSH_CUSTOM:-\$HOME}/.oh-my-zsh/custom/themes/powerlevel10k > /dev/null 2>&1"
+  log "${INFO}" "Cloning vim theme code-dark"
+  run "git clone \-\-depth=1 https://github.com/tomasiser/vim-code-dark \${HOME}/.vim/pack/themes/start/vim-code-dark > /dev/null 2>&1"
+  
+  if [[ -n "${REMOTE_SERVER}" ]]; then
+    log "${INFO}" "Copying sed script (sed.sh)"
+    copy_if_remote resources/sed.sh sed.sh
+    log "${INFO}" "Copying Powerlevel10k prompt script for ohmyzsh (.p10k.zsh)"
+    copy_if_remote resources/.p10k.zsh .p10k.zsh
+    log "${INFO}" "Copying vim configuration file (.vimrc)"
+    copy_if_remote resources/.vimrc .vimrc
+    log "${INFO}" "Copying zsh configuration file (.zshrc)"
+    copy_if_remote resources/.zshrc .zshrc
+  fi
+  log "${INFO}" "Runing sed script (sed.sh)"
+  run "sh sed.sh > /dev/null 2>&1"
+  log "${INFO}" "Changing the user's shell to /usr/bin/zsh"
+  run "sudo chsh \${USER} -s /usr/bin/zsh > /dev/null 2>&1"
   print_horizontal_line
 }
 
@@ -159,10 +316,10 @@ _final_check_for_host_and_port_in_ssh_config()
 
   host_count=$(sed -ne "/^\[${server_hostname}\]\:${server_port}/p" "${FILE_KNOWN_HOSTS}" | wc -l)
   if [[ "${host_count}" -eq 0 ]]; then
-    log "Removed all references of ${server_hostname}:${server_port} in ${FILE_KNOWN_HOSTS}"
+    log "${INFO}" "Removed all references of ${server_hostname}:${server_port} in ${FILE_KNOWN_HOSTS}"
   else
-    log "WARNING: Could not remove all references to ${server_hostname}:${server_port}"
-    log "         Post-check still reports ${host_count} references left in ${FILE_KNOWN_HOSTS}"
+    log "${WARN}" "WARNING: Could not remove all references to ${server_hostname}:${server_port}"
+    log "${WARN}" "         Post-check still reports ${host_count} references left in ${FILE_KNOWN_HOSTS}"
   fi
 }
 
@@ -239,7 +396,6 @@ parse_ssh_options()
   # Ugly, but ShellCheck thinks we should define separately from the value
   # assignment.
   # https://github.com/koalaman/shellcheck/wiki/SC2155
-  local sshconfig_example
   local orig_string
   local regex
 
@@ -261,7 +417,6 @@ parse_ssh_options()
   local arg_num_dest_port
 
   # An example string of what is expected
-  sshconfig_example="\"ssh -i ~/.ssh/rht_classroom.rsa -J cloud-user@55.60.13.103:22022 student@172.25.252.1 -p 53009\""
   orig_string="${1}"
 
   # convert string into an string array
@@ -274,7 +429,7 @@ parse_ssh_options()
     echo "ERROR: The string passed to --sshconfig looks incorrect."
     echo "       There should be eight (8) parameters in the string."
     echo "       Ensure it is surrounded by quotes."
-    echo "USAGE: ${SCRIPT_NAME} --sshconfig ${sshconfig_example}"
+    echo "USAGE: ${SCRIPT_NAME} --sshconfig ${SSHCONFIG_EXAMPLE}"
     exit "${ERROR}"
   fi
 
@@ -363,10 +518,10 @@ EOF
   sed -i -e '/### _GENERATED_BY_SSH_SETUP_SCRIPT_START_ ###/,/### _GENERATED_BY_SSH_SETUP_SCRIPT_END_ ###/d' ~/.ssh/config
 
   # use echo to concat the new entry into the ssh config
-  echo "${ssh_t}" >> ~/.ssh/config
+  echo "${ssh_t}" >> "${FILE_SSH_CONFIG}"
 
-  log "Successfully added the jump server configuration in your ~/.ssh/config file"
-  log "Type: 'ssh labs' to connect"
+  log "${INFO}" "Successfully added the jump server configuration in your ${FILE_SSH_CONFIG} file"
+  log "${INFO}" "Type: 'ssh labs' to connect"
 
   # Perform some final checks
   check_for_host_and_port_in_ssh_config \
@@ -396,6 +551,58 @@ configure_ssh_config()
   parse_ssh_options "${ssh_options}"
 }
 
+show_help()
+{
+  help_msg=$(cat <<-EOF
+Options:
+  --help: this message
+  --sshconfig <your labs ssh string given to you by your lab>
+    Example:
+      --sshconfig _SSH_CONFIG_EXAMPLE_
+  --remote <remote_server_ip>
+
+Usage:
+  To fully configure a new lab environment:
+    1. Ensure your classroom's private key is copied to _FILE_SSH_PRIVATE_KEY_
+       or elsewhere of your choosing.
+    2. Copy the connection string given to you by your lab environment. For
+       example: _SSH_CONFIG_EXAMPLE_
+    3. Run _SCRIPT_NAME_ --sshconfig _SSH_CONFIG_EXAMPLE_
+       Ensure to surround your connection string in quotes!
+       The prompts will step you through the setup process.
+
+    ** NOTE: If you install "oh my zsh!" and the "powerlevel10k" prompt, then
+             you will need to install the custom fonts on your machine.
+             See the fonts/ subdirectory for more information.
+EOF
+  )
+
+  help_msg="${help_msg//_SSH_CONFIG_EXAMPLE_/${SSHCONFIG_EXAMPLE}}"
+  help_msg="${help_msg//_FILE_SSH_PRIVATE_KEY_/${FILE_SSH_PRIVATE_KEY}}"
+  help_msg="${help_msg//_SCRIPT_NAME_/${SCRIPT_NAME}}"
+
+  print_horizontal_line
+  echo "${help_msg}"
+  print_horizontal_line
+  echo ""
+}
+
+success_msg()
+{
+  echo "--> Everything is ready!"
+  echo "--> Type: 'ssh labs' to connect to your labs server!"
+}
+
+print_compressed_header()
+{
+  print_horizontal_line
+  echo "${TITLE} ${VERSION} Copyright (c) 2023 ${AUTHOR} (${AUTHOR_EMAIL})"
+  print_horizontal_line
+  echo "This program is free software: you can redistribute it and/or modify"
+  echo "it under the terms of the GNU General Public License either v3 or later." 
+  echo "License: ${LICENSE}"
+}
+
 options()
 {
   local arg1
@@ -404,10 +611,16 @@ options()
   arg2=$(_set_arg "${2}")
 
   case "${arg1}" in
+    "--help")
+      print_compressed_header
+      show_help
+    ;;
     "--sshconfig")
+      print_header
       configure_ssh_config "${arg2}"
     ;;
     "--remote")
+      print_header
       if [[ -z "${arg2}" ]]; then
         echo "You must provide a server name after --remote parameter"
         echo "Example: ${SCRIPT_NAME} --remote 50.1.1.1"
@@ -415,19 +628,42 @@ options()
       fi
       REMOTE_SERVER="${arg2}"
       install_zsh
+      success_msg
     ;;
     # if anything else, then just install zsh as normal
     *)
+      print_header
       install_zsh "${arg1}"
+      success_msg
     ;;
   esac
-
-  echo "--> Everything is ready!"
-  echo "--> Type: 'ssh labs' to connect to your labs server!"
 }
+
+prompt_for_sudo_password()
+{
+  log "${WARN}" "sudo command requires a password to function on your account"
+  echo  -e "--> Please enter your sudo password so this script can function."
+  echo -ne "--> "
+  read -s SUDO_PASSWORD
+}
+
+
+test_sudo()
+{
+  if sudo -n true 2>/dev/null; then
+    SUDO_REQUIRES_PASSWORD="${FALSE}"
+  else
+    SUDO_REQUIRES_PASSWORD="${TRUE}"
+    prompt_for_sudo_password
+  fi
+}
+
 
 ### MAIN #######################################################################
 
-print_header
+#set -x
+assign_traps
+test_sudo
+load_ansi_colors
 options "${@}"
 exit "${SUCCESS}"

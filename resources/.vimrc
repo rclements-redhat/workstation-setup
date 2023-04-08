@@ -7,8 +7,10 @@
 "   - Add IdentLine plugin
 "   - Higlight tabs with \ character
 " Custom setup for Ansible and replaces tabs with spaces
-" Add line numbers
-autocmd FileType yaml setlocal et ts=2 ai sw=2 nu sts=0
+" Set yaml to have a tab of 2 spaces
+autocmd FileType yaml setlocal et ts=2 ai sw=2 nu sts=2
+" Set all files to have a tab of 2 spaces
+set et ts=2 ai sw=2 nu sts=2
 set cursorline
 " Make sure we replace tabs with \ so we know where those pesky tabs are
 set list lcs=tab:\|\
@@ -22,7 +24,7 @@ set list lcs=tab:\|\
 "
 " ** You'll need to set the font to Development in vscode too to see it in this
 " file if using vscode to view this configuration file
-let g:indentLine_char = ''
+let g:indentLine_char = ''
 
 " enables vscode-inspired colors in vim
 colorscheme codedark

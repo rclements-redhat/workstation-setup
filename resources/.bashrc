@@ -30,8 +30,6 @@ unset rc
 # prompt
 export PS1="\[\e[90m[\e[94m\]\u\[\e[92m\] \W \[\e[36m\]$(git branch 2> /dev/null | sed -e '/^[^*]/d' -e 's/* \(.*\)/(\1)/')\[\e[90m]\e[37m\]$ \[$(tput sgr0)\]"
 
-
-
 # load rc file that used by .bashrc and .zshrc
 source ${HOME}/.shellrc
 
