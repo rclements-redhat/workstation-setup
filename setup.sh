@@ -28,6 +28,8 @@ AUTHOR_EMAIL="rclement@redhat.com"
 AUTHOR_PGP_PUBLIC_KEY="FD1EB8DBA4278107A7197F9A58646927A6BC2736"
 LICENSE="https://www.gnu.org/licenses/gpl-3.0.html"
 SCRIPT_NAME=$(basename "${0}")
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
+SCRIPT_SHA256_CHECKSUM=$(sha256sum "${SCRIPT_DIR}/${SCRIPT_NAME}" | cut -d' ' -f1)
 
 ### CONSTANTS ##################################################################
 
@@ -71,7 +73,7 @@ FILE_ANSI_COLOR="ansi_colors.sh"
 SSHCONFIG_EXAMPLE="\"ssh -i ~/.ssh/rht_classroom.rsa -J cloud-user@55.60.13.103:22022 student@172.25.252.1 -p 53009\""
 SPINNER="/-\|"
 
-OH_MY_ZSH_NAME="${lred}Oh My ZSH!${normal}"
+ALL_DNF_PACKAGES="zsh"
 
 ### UNICODE CHARS ##############################################################
 
@@ -103,6 +105,10 @@ load_ansi_colors()
 
 load_ansi_colors
 
+### COLOR CONSTANTS ############################################################
+
+OH_MY_ZSH_NAME="Oh My ZSH!"
+
 ### FUNCTIONS ##################################################################
 
 # Print a horizontal black line
@@ -111,6 +117,8 @@ print_horizontal_line()
   black_bold
   python -c "print('-' * 80)"
   reset_color
+
+  return "${TRUE}"
 }
 
 print_header()
@@ -143,6 +151,8 @@ EOF
   reset_color
   print_horizontal_line
   echo ""
+
+  return "${TRUE}"
 }
 
 # Log messages to screen
@@ -167,10 +177,12 @@ log()
   echo -ne "${grey}[${lc}*"
   tput sc
   printf "%s]%s %b" "${gray}" "${normal}" "${msg}"
+
+  return "${TRUE}"
 }
 
 # This function is a trap function called by the "trap" directive. Shellcheck
-# thinks its not accessable
+# thinks its not accessible
 # shellcheck disable=SC2317
 _sigint_trap()
 {
@@ -183,6 +195,7 @@ _sigint_trap()
   if [[ -n "${RUNNING_PID}" ]]; then
     kill -9 "${RUNNING_PID}" > /dev/null 2>&1
   fi
+
   exit "${ERROR}"
 }
 
@@ -190,6 +203,8 @@ _sigint_trap()
 assign_traps()
 {
   trap _sigint_trap SIGINT
+
+  return "${TRUE}"
 }
 
 run_local()
@@ -215,6 +230,7 @@ run_local()
   tput cub1
   echo -e "${unicode_check_mark}"
 
+  return "${TRUE}"
 }
 
 # Function to run commands
@@ -261,6 +277,8 @@ EOD
 #  tput rc
   tput cub1
   echo -e "${unicode_check_mark}"
+
+  return "${TRUE}"
 }
 
 copy_if_remote()
@@ -268,6 +286,8 @@ copy_if_remote()
   if [[ -n "${REMOTE_SERVER}" ]]; then
     scp "${1}" "${REMOTE_SERVER}:${2}" > /dev/null
   fi
+
+  return "${TRUE}"
 }
 
 copy()
@@ -277,6 +297,8 @@ copy()
   else
     cp "${1}" "${2}"
   fi
+
+  return "${TRUE}"
 }
 
 keyscan_host()
@@ -289,12 +311,12 @@ keyscan_host()
 
   log "${INFO}" "Scanning keys from host ${lcyan}${address}${normal}:${lcyan}${port}${normal}\n"
   run_local "ssh-keyscan -p ${port} ${address} >> ${FILE_KNOWN_HOSTS} 2>&1"
+
+  return "${TRUE}"
 }
 
 ## Install ZSH
-
 # TODO: I really don't like this. Must rework at some point.
-
 install_zsh()
 {
   print_horizontal_line
@@ -329,9 +351,9 @@ install_zsh()
   print_horizontal_line
   log "${INFO}" "Type: '${lcyan}ssh labs${normal}' to connect\n"
   print_horizontal_line
-}
 
-## Configure ~/.ssh/config
+  return "${TRUE}"
+}
 
 _set_arg()
 {
@@ -369,6 +391,8 @@ _final_check_for_host_and_port_in_ssh_config()
     log "${WARN}" "WARNING: Could not remove all references to ${server_hostname}:${server_port}"
     log "${WARN}" "         Post-check still reports ${host_count} references left in ${FILE_KNOWN_HOSTS}"
   fi
+
+  return "${TRUE}"
 }
 
 # FUNCTION: check_for_host_and_post_in_ssh_config
@@ -454,6 +478,8 @@ check_for_host_and_port_in_ssh_config()
       "${jump_server_hostname}" "${jump_server_port}"
   fi
   echo ""
+
+  return "${TRUE}"
 }
 
 print_question()
@@ -469,6 +495,8 @@ print_question()
   do
     echo -ne "${question_pre} ${line}"
   done
+
+  return "${TRUE}"
 }
 
 parse_ssh_options()
@@ -630,6 +658,8 @@ EOF
   if [[ "${input_char}" != "n" ]]; then
     install_zsh
   fi
+
+  return "${TRUE}"
 }
 
 configure_ssh_config()
@@ -642,64 +672,90 @@ configure_ssh_config()
   fi
 
   parse_ssh_options "${ssh_options}"
+
+  return "${TRUE}"
 }
 
 show_help()
 {
   help_msg=$(cat <<-EOF
-Options:
-  --help: this message
-  --sshconfig <your labs ssh string given to you by your lab>
-    Example:
-      --sshconfig _SSH_CONFIG_EXAMPLE_
-  --remote <remote_server_ip>
 
-Usage:
+|y|Options:|n|
+  --|lc|help|g|: |n|this message|n|
+  --|lc|sshconfig |c|<your labs ssh string given to you by your lab>|n|
+    Configures your |lc|_FILE_SSH_CONFIG_|n| file to connect to the lab using an alias
+    Will also ask you if you want to setup zsh/_OH_MY_ZSH_NAME_ after you're done.
+    Example: |gr|--sshconfig _SSH_CONFIG_EXAMPLE_|n|
+
+|y|Usage:|n|
   To fully configure a new lab environment:
-    1. Ensure your classroom's private key is copied to _FILE_SSH_PRIVATE_KEY_
-       or elsewhere of your choosing.
-    2. Copy the connection string given to you by your lab environment. For
-       example: _SSH_CONFIG_EXAMPLE_
-    3. Run _SCRIPT_NAME_ --sshconfig _SSH_CONFIG_EXAMPLE_
-       Ensure to surround your connection string in quotes!
-       The prompts will step you through the setup process.
+    1|g|.|n| Ensure your classroom's private key is copied to |lc|_FILE_SSH_PRIVATE_KEY_|n|
+    2|g|.|n| Copy the connection string given to you by your lab environment.
+    3|g|.|n| Run |lc|./_SCRIPT_NAME_ --sshconfig |c|_SSH_CONFIG_EXAMPLE_|n|
+                                   |g|^ Example ONLY, use your string instead ^|n|
 
-    ** NOTE: If you install "_OH_MY_ZSH_NAME_" and the "powerlevel10k" prompt, then
-             you will need to install the custom fonts on your machine.
-             See the fonts/ subdirectory for more information.
+    |y|** NOTE|n|: You must install the custom fonts if you install the |lc|powerlevel10k|n|
+             prompt. See the |lc|fonts/|n| subdirectory for more information.
 EOF
   )
+  # Removed parameter for now. Keeping this here so it can be added back later
+  # --|lc|installzsh |c|<user@remote_server_ip:port>|n|
 
   help_msg="${help_msg//_SSH_CONFIG_EXAMPLE_/${SSHCONFIG_EXAMPLE}}"
   help_msg="${help_msg//_FILE_SSH_PRIVATE_KEY_/${FILE_SSH_PRIVATE_KEY}}"
   help_msg="${help_msg//_SCRIPT_NAME_/${SCRIPT_NAME}}"
   help_msg="${help_msg//_OH_MY_ZSH_NAME_/${OH_MY_ZSH_NAME}}"
-
+  help_msg="${help_msg//_FILE_SSH_CONFIG_/${FILE_SSH_CONFIG}}"
+  help_msg="${help_msg//|lc|/${lcyan}}"
+  help_msg="${help_msg//|g|/${grey}}"
+  help_msg="${help_msg//|c|/${cyan}}"
+  help_msg="${help_msg//|y|/${yellow}}"
+  help_msg="${help_msg//|n|/${normal}}"
+  help_msg="${help_msg//|gr|/${green}}"
 
   print_horizontal_line
   echo "${help_msg}"
   print_horizontal_line
   echo ""
+
+  return "${TRUE}"
 }
 
 success_msg()
 {
   echo "--> Everything is ready!"
   echo "--> Type: 'ssh labs' to connect to your labs server!"
+
+  return "${TRUE}"
 }
 
+# FUNCTION    : print_compressed_header
+# ARGUMENTS   : none
+# DESCRIPTION : Prints a compressed version of the program's header containing
+#               it's metadata, such as author, version, author email, GPG key
+#               and license information.
+# RETURNS     : always ${TRUE}
 print_compressed_header()
 {
   print_horizontal_line
   echo "${TITLE} ${VERSION} Copyright (c) 2023 ${AUTHOR} (${AUTHOR_EMAIL})"
   echo "Author GPG key: ${AUTHOR_PGP_PUBLIC_KEY}"
+  echo "Script SHA256 : ${SCRIPT_SHA256_CHECKSUM}"
   print_horizontal_line
-  echo "This program is free software: you can redistribute it and/or modify"
-  echo "it under the terms of the GNU General Public License either v3 or later." 
+  echo "This program is free software: you can redistribute it and/or modify it under"
+  echo "the terms of the GNU General Public License either v3 or later." 
   echo "License: ${LICENSE}"
+
+  return "${TRUE}"
 }
 
-options()
+# FUNCTION    : process_subcommands
+# ARGUMENTS   : An array of arguments passed from main() which are the user's
+#               command-line arguments.
+# DESCRIPTION : Parses the user's main command-line arguments and executes the
+#               appropriate logic and functions.
+# RETURNS     : always ${TRUE}
+process_subcommands()
 {
   local arg1
   local arg2
@@ -707,51 +763,61 @@ options()
   arg2=$(_set_arg "${2}")
 
   case "${arg1}" in
-    "--help")
-      print_compressed_header
-      show_help
-    ;;
     "--sshconfig")
       print_header
       test_sudo
       configure_ssh_config "${arg2}"
     ;;
-    "--remote")
-      print_header
-      if [[ -z "${arg2}" ]]; then
-        echo "You must provide a server name after --remote parameter"
-        echo "Example: ${SCRIPT_NAME} --remote 50.1.1.1"
-        exit "${ERROR}"
-      fi
-      REMOTE_SERVER="${arg2}"
-      install_zsh
-      success_msg
+    # Parameter removed for now
+    #
+    # "--installzsh")
+    #   print_header
+    #   if [[ -z "${arg2}" ]]; then
+    #     echo "You must provide a user and server name after --installzsh parameter"
+    #     echo "Example: ${SCRIPT_NAME} --installzsh user@50.0.0.1"
+    #     echo ""
+    #     echo "Alternatively, you can also supply a port number. You may also use"
+    #     echo "hostnames/aliases from your ${REMOTE_SSH_CONFIG} file or localhost"
+    #     echo ""
+    #   fi
+    #   test_sudo
+    #   install_zsh "${arg1}"
+    #   success_msg
+    # ;;
+    "--help"|*)
+      print_compressed_header
+      show_help
     ;;
-    # if anything else, then just install zsh as normal
-    *)
-      print_header
-      test_sudo
-      install_zsh "${arg1}"
-      success_msg
-    ;;
+      
+
   esac
+
+  return "${TRUE}"
 }
 
+# FUNCTION    : prompt_for_sudo_password
+# ARGUMENTS   : none
+# DESCRIPTION : Prompts the user for the machine's sudo password and stores it
+#               in the global variable named [SUDO_PASSWORD]
+# RETURNS     : always ${TRUE}
 prompt_for_sudo_password()
 {
   question=(\
 "The ${lcyan}sudo ${normal}command requires a password when run as the ${lcyan}${REAL_USER} ${normal}user.\n" \
 "\n"
-"${pink}${s_u}You have two choices:${e_u}\n"
+"${pink}${s_u}You have THREE (3) choices (${lpurple}pick any${pink}):${e_u}\n"
 "\n"
 "  ${yellow}1${orange}. ${normal}Enter the ${lcyan}sudo ${normal}password below\n" \
-"  ${yellow}2${orange}. ${normal}Or rerun this script with sudo privileges (${lcyan}CTRL-C ${normal}to exit)\n" \
+"  ${yellow}2${orange}. ${normal}Rerun this script with sudo privileges (${lcyan}CTRL${normal}-${lcyan}C ${normal}to exit)\n" \
+"  ${yellow}3${orange}. ${normal}Install the packages yourself then rerun the script\n" \
+"     ${normal}a${grey}. ${normal}Use ${lcyan}CTRL${normal}-${lcyan}C ${normal}to exit this script\n" \
+"     ${normal}b${grey}. ${normal}Type ${grey}\$ ${lgreen}sudo dnf -y install ${ALL_DNF_PACKAGES}${normal}\n" \
+"     ${normal}b${grey}. ${normal}Rerun the script with the same arguments\n" \
 "\n"
 "It needs sudo because the script installs a few packages such as zsh if \n" \
 "${OH_MY_ZSH_NAME} is selected to be installed.\n" \
 "\n"
-"Please enter the ${lcyan}sudo${normal} password below (echo is turned off):\n" \
-""
+"Please enter the ${lcyan}sudo${normal} password (echo is turned off): " \
   )
   print_question "${question[@]}"
   
@@ -760,8 +826,14 @@ prompt_for_sudo_password()
   echo ""
   log "${INFO}" "Thank you for entering the sudo password. Continuing...\n"
 
+  return "${TRUE}"
 }
 
+# FUNCTION    : test_sudo
+# ARGUMENTS   : none
+# DESCRIPTION : Performs a test to see if sudo requires a password on this
+#               machine. If so, call the [prompt_for_sudo_password] function.
+# RETURNS     : always ${TRUE}
 test_sudo()
 {
   if sudo -n true 2>/dev/null; then
@@ -770,13 +842,20 @@ test_sudo()
     SUDO_REQUIRES_PASSWORD="${TRUE}"
     prompt_for_sudo_password
   fi
+  return "${TRUE}"
 }
 
+main()
+{
+  # Configure signal traps
+  assign_traps
+  # Call the main subcommand parser
+  process_subcommands "${@}"
+}
 
 ### MAIN #######################################################################
 
-#set -x
-assign_traps
-load_ansi_colors
-options "${@}"
+# Call the main function
+main "${@}"
+# Exit with success if we got here
 exit "${SUCCESS}"
