@@ -94,4 +94,5 @@ alias ar=ansible-rulebook
 alias av=ansible-vault
 alias cc1="oc config --kubeconfig=${KUBE_CONFIG_COMPUTACENTER} use-context computacenter1"
 alias cc2="oc config --kubeconfig=${KUBE_CONFIG_COMPUTACENTER} use-context computacenter2"
-
+# starts proxy to labs
+alias sp="ssh -C2qTnN -D 8080 labs"

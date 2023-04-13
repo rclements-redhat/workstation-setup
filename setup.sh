@@ -58,6 +58,7 @@ USER_HOME_DIR=$(getent passwd "${REAL_USER}" | cut -d: -f6 )
 # the remote server name
 REMOTE_SERVER=labs
 
+
 FILE_KNOWN_HOSTS="${USER_HOME_DIR}/.ssh/known_hosts"
 FILE_SSH_CONFIG="${USER_HOME_DIR}/.ssh/config"
 FILE_SSH_PRIVATE_KEY="${USER_HOME_DIR}/.ssh/rht_classroom.rsa"
@@ -69,6 +70,8 @@ FILE_LOCS_ANSI_COLOR=("./resources/" \
 FILE_ANSI_COLOR="ansi_colors.sh"
 
 ### STRINGS ####################################################################
+
+DEFAULT_SSHALIAS=labs
 
 SSHCONFIG_EXAMPLE="\"ssh -i ~/.ssh/rht_classroom.rsa -J cloud-user@55.60.13.103:22022 student@172.25.252.1 -p 53009\""
 SPINNER="/-\|"
@@ -499,46 +502,74 @@ print_question()
   return "${TRUE}"
 }
 
+purge_stdin()
+{
+    while read -e -t 0.1; do : ; done
+}
+
+replace_tags_with_values()
+{
+  local -n associative_array="${1}"
+  local value
+
+  for key in "${!associative_array[@]}"
+  do
+    value="${associative_array[$key]}"
+    ssh_t="${ssh_t//${key}/${value}}"
+  done
+
+  echo "${ssh_t}"
+}
+
 parse_ssh_options()
 {
   # Define variables as local
   # Ugly, but ShellCheck thinks we should define separately from the value
   # assignment.
   # https://github.com/koalaman/shellcheck/wiki/SC2155
-  local orig_string
+  local required_sshconfig_orig_string
+  local optional_sshalias
   local regex
-
+  local final_sshalias
   local id_rsa
   local arg_jump_server
   local arg_dest_server
-
   local dest_server_port
   local dest_server_hostname
   local dest_server_username
-
   local jump_server_username
   local jump_server_port
   local jump_server_hostname
-
   local arg_num_id_rsa
   local arg_num_jump_server
   local arg_num_dest_server
   local arg_num_dest_port
 
-  # An example string of what is expected
-  orig_string="${1}"
+  # Declare local associative array for the sshconfig_tags. This is used in the
+  # key/value templating for ~/.ssh/config. The key/value pairs are defined
+  # later in this function
+  local -A sshconfig_tags
 
+  # If optional_sshalias was defined by user arguments, then use that. If not,
+  # then use the DEFAULT_SSHALIAS (originally set to "labs")
+  optional_sshalias="${2}"
+  final_sshalias="${optional_sshalias:-${DEFAULT_SSHALIAS}}"
+
+  # An example string of what is expected
+  required_sshconfig_orig_string="${1}"
+  
   # convert string into an string array
   # sorry shellcheck, I actually want to split here! No quotes for you!
   # shellcheck disable=SC2206
-  arg_array=(${orig_string})
+  arg_array=(${required_sshconfig_orig_string})
 
   # check to ensure there are 8 elements provided by the user's input
   if [[ "${#arg_array[@]}" -ne 8 ]]; then
     echo "ERROR: The string passed to --sshconfig looks incorrect."
     echo "       There should be eight (8) parameters in the string."
-    echo "       Ensure it is surrounded by quotes."
-    echo "USAGE: ${SCRIPT_NAME} --sshconfig ${SSHCONFIG_EXAMPLE}"
+    echo "       Ensure it is surrounded by quotes. You may also provide an"
+    echo "       sshalias if you wish."
+    echo "EXAMPLE: ${SCRIPT_NAME} --sshconfig ${SSHCONFIG_EXAMPLE} do188"
     exit "${ERROR}"
   fi
 
@@ -600,38 +631,53 @@ parse_ssh_options()
     exit "${ERROR}"
   fi
 
+  ### Start Template creation for ~/.ssh/conig ###
+
   # Define template for ssh config
   ssh_t=$(cat <<-EOF
-### _GENERATED_BY_SSH_SETUP_SCRIPT_START_ ###
-Host labs
+### _GENERATED_BY_SSH_SETUP_SCRIPT_START_FOR_HOST__FINAL_SSHALIAS_ ###
+Host _FINAL_SSHALIAS_
   StrictHostKeyChecking no
   HostName _DEST_SERVER_HOSTNAME_
   Port _DEST_SERVER_PORT_
   IdentityFile _ID_RSA_
   ProxyJump _JUMP_SERVER_USERNAME_@_JUMP_SERVER_HOSTNAME_:_JUMP_SERVER_PORT_
   User _DEST_SERVER_USERNAME_
-### _GENERATED_BY_SSH_SETUP_SCRIPT_END_ ###
+### _GENERATED_BY_SSH_SETUP_SCRIPT_END_FOR_HOST__FINAL_SSHALIAS_ ###
 EOF
 )
 
-  # time to fill in our template
-  ssh_t="${ssh_t//_DEST_SERVER_HOSTNAME_/${dest_server_hostname}}"
-  ssh_t="${ssh_t//_DEST_SERVER_PORT_/${dest_server_port}}"
-  ssh_t="${ssh_t//_ID_RSA_/${id_rsa}}"
-  ssh_t="${ssh_t//_JUMP_SERVER_USERNAME_/${jump_server_username}}"
-  ssh_t="${ssh_t//_JUMP_SERVER_HOSTNAME_/${jump_server_hostname}}"
-  ssh_t="${ssh_t//_JUMP_SERVER_PORT_/${jump_server_port}}"
-  ssh_t="${ssh_t//_DEST_SERVER_USERNAME_/${dest_server_username}}"
+  ## Time to fill in our template!
+  sshconfig_tags[_FINAL_SSHALIAS_]="${final_sshalias}"
+  sshconfig_tags[_DEST_SERVER_HOSTNAME_]="${dest_server_hostname}"
+  sshconfig_tags[_DEST_SERVER_PORT_]="${dest_server_port}"
+  sshconfig_tags[_ID_RSA_]="${id_rsa}"
+  sshconfig_tags[_JUMP_SERVER_USERNAME_]="${jump_server_username}"
+  sshconfig_tags[_JUMP_SERVER_HOSTNAME_]="${jump_server_hostname}"
+  sshconfig_tags[_JUMP_SERVER_PORT_]="${jump_server_port}"
+  # Shellcheck thinks sshconfig_tags isn't used because we're passing it as a
+  # reference to the replace_tags_with_values function instead of the array
+  # itself. Therefore, we have disable SC2034 on the last line of the array
+  # declaration so that it doesn't report the false-positive
+  # shellcheck disable=SC2034
+  sshconfig_tags[_DEST_SERVER_USERNAME_]="${dest_server_username}"
 
+  # Call the function replace_tags_with_values and pass the sshconfig_tags
+  # associative array reference to the function
+  ssh_t=$(replace_tags_with_values sshconfig_tags)
+  
   # Use sed to delete any previous entries
-  sed -i -e '/### _GENERATED_BY_SSH_SETUP_SCRIPT_START_ ###/,/### _GENERATED_BY_SSH_SETUP_SCRIPT_END_ ###/d' "${FILE_SSH_CONFIG}"
+  sed -i -e "/### _GENERATED_BY_SSH_SETUP_SCRIPT_START_FOR_HOST_${final_sshalias} ###/,/### _GENERATED_BY_SSH_SETUP_SCRIPT_END_FOR_HOST_${final_sshalias} ###/d" "${FILE_SSH_CONFIG}"
 
   # use echo to concat the new entry into the ssh config
   echo "${ssh_t}" >> "${FILE_SSH_CONFIG}"
 
+  ### Done with Template creation for ~/.ssh/conig ###
+
+  # Show the result of the addition
   print_horizontal_line
   log "${INFO}" "Successfully added the jump server configuration in your ${lcyan}${FILE_SSH_CONFIG} ${normal}file\n"
-  log "${INFO}" "Type: '${lcyan}ssh labs${normal}' to connect\n"
+  log "${INFO}" "Type: '${lcyan}ssh ${final_sshalias}${normal}' to connect\n"
   print_horizontal_line
 
   # Perform some final checks
@@ -639,6 +685,7 @@ EOF
     "${dest_server_hostname}" "${dest_server_port}" \
     "${jump_server_hostname}" "${jump_server_port}"
 
+  # Perform keyscans on the hosts user just added
   keyscan_host "${jump_server_hostname}" "${jump_server_port}"
   keyscan_host "${dest_server_hostname}" "${dest_server_port}"
 
@@ -652,6 +699,9 @@ EOF
 
   local input_char
 
+  # ensure nothing is in the buffer before reading the answer
+  purge_stdin
+
   read -r -n1 input_char
   echo ""
   # anything besides 'n' means 'y'
@@ -664,25 +714,30 @@ EOF
 
 configure_ssh_config()
 {
-  local ssh_options
-  ssh_options="${1}"
+  local required_sshconfig
+  local optional_sshalias
+
+  required_sshconfig="${1}"
+  optional_sshalias="${2}"
 
   if [[ -z "${REMOTE_SERVER}" ]]; then
     return
   fi
 
-  parse_ssh_options "${ssh_options}"
+  parse_ssh_options "${required_sshconfig}" "${optional_sshalias}"
 
   return "${TRUE}"
 }
 
 show_help()
 {
+  local help_msg
+  
   help_msg=$(cat <<-EOF
 
 |y|Options:|n|
   --|lc|help|g|: |n|this message|n|
-  --|lc|sshconfig |c|<your labs ssh string given to you by your lab>|n|
+  --|lc|sshconfig |c|<your labs ssh string given to you by your lab>|n| |c|[sshalias]|n|
     Configures your |lc|_FILE_SSH_CONFIG_|n| file to connect to the lab using an alias
     Will also ask you if you want to setup zsh/_OH_MY_ZSH_NAME_ after you're done.
     Example: |gr|--sshconfig _SSH_CONFIG_EXAMPLE_|n|
@@ -759,14 +814,22 @@ process_subcommands()
 {
   local arg1
   local arg2
+  local arg3
   arg1=$(_set_arg "${1}")
   arg2=$(_set_arg "${2}")
+  arg3=$(_set_arg "${3}")
 
   case "${arg1}" in
     "--sshconfig")
+      local required_sshconfig
+      local optional_sshalias
+      required_sshconfig="${arg2}"
+      optional_sshalias="${arg3}"
+
       print_header
       test_sudo
-      configure_ssh_config "${arg2}"
+
+      configure_ssh_config "${required_sshconfig}" "${optional_sshalias}"
     ;;
     # Parameter removed for now
     #
