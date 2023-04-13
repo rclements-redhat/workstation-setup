@@ -45,8 +45,6 @@ TRUE=1
 
 ### ARRAY DECLARATIONS #########################################################
 
-declare -A ssh_options
-
 ### FILES ######################################################################
 
 # Get the REAL name of the user executing this script, even if they use sudo
@@ -57,7 +55,6 @@ USER_HOME_DIR=$(getent passwd "${REAL_USER}" | cut -d: -f6 )
 # if REMOTE_SERVER is defined, then the script will send the setup commands to
 # the remote server name
 REMOTE_SERVER=labs
-
 
 FILE_KNOWN_HOSTS="${USER_HOME_DIR}/.ssh/known_hosts"
 FILE_SSH_CONFIG="${USER_HOME_DIR}/.ssh/config"
@@ -732,7 +729,7 @@ configure_ssh_config()
 show_help()
 {
   local help_msg
-  
+
   help_msg=$(cat <<-EOF
 
 |y|Options:|n|
