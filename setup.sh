@@ -551,6 +551,7 @@ parse_ssh_options()
   # then use the DEFAULT_SSHALIAS (originally set to "labs")
   optional_sshalias="${2}"
   final_sshalias="${optional_sshalias:-${DEFAULT_SSHALIAS}}"
+  REMOTE_SERVER="${final_sshalias}"
 
   # An example string of what is expected
   required_sshconfig_orig_string="${1}"
@@ -776,7 +777,7 @@ EOF
 success_msg()
 {
   echo "--> Everything is ready!"
-  echo "--> Type: 'ssh labs' to connect to your labs server!"
+  echo "--> Type: \"ssh ${REMOTE_SERVER}\" to connect to your labs server!"
 
   return "${TRUE}"
 }
